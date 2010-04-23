@@ -8,3 +8,5 @@ long ade7763_read_lvaenergy();
 int ade7763_read_dierev();
 int ade7763_read_chksum();
 long get_energy();
+byte set_dimmer(int channel, int value)
+void switch_mux(int sense_channel);
