@@ -9,8 +9,8 @@
 // SPI: slave reads at falling edge, writes at rising edge
 //
 
-#include <Spi.h>
-#include <Wire.h>
+#include <Spi/Spi.h>
+#include <Wire/Wire.h>
 #define MUX_ADDRESS (B1001100) // I2C MUX ADDRESS
 
 const int METER = 10;
@@ -40,7 +40,7 @@ long _ade7763_read_24s(byte address) {
   return ret;
 }
 
-long _ade7763_read_24u(byte address) {
+unsigned long _ade7763_read_24u(byte address) {
   _start_read(address);
   byte high, mid, low;
   high = Spi.transfer(0x00);
@@ -50,7 +50,7 @@ long _ade7763_read_24u(byte address) {
   return ( high << 16 | mid << 8 | low );
 }
 
-int _ade7763_read_8u(byte address) {
+unsigned int _ade7763_read_8u(byte address) {
   _start_read(address);
   byte low;
   low = Spi.transfer(0x00);
@@ -74,27 +74,27 @@ long ade7763_read_laenergy() {
   return _ade7763_read_24s(0x04);
 }
 
-long ade7763_read_vaenergy() {
+unsigned long ade7763_read_vaenergy() {
   return _ade7763_read_24u(0x05);
 }
 
-long ade7763_read_rvaenergy() {
+unsigned long ade7763_read_rvaenergy() {
   return _ade7763_read_24u(0x06);
 }
 
-long ade7763_read_lvaenergy() {
+unsigned long ade7763_read_lvaenergy() {
   return _ade7763_read_24u(0x07);
 }
 
-int ade7763_read_dierev() {
+unsigned int ade7763_read_dierev() {
   return _ade7763_read_8u(0x3F);
 }
 
-int ade7763_read_chksum() {
+unsigned int ade7763_read_chksum() {
   return _ade7763_read_8u(0x3E);
 }
 
-long get_energy() {
+unsigned long get_energy() {
 // returns total energy since last call
 // so first value on startup may not be useful
 // or may be, if you have the timestamp of the last call
