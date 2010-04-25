@@ -9,8 +9,8 @@
 // SPI: slave reads at falling edge, writes at rising edge
 //
 
-#include <Spi/Spi.h>
-#include <Wire/Wire.h>
+#include <Spi.h>
+#include <Wire.h>
 #define MUX_ADDRESS (B1001100) // I2C MUX ADDRESS
 
 const int METER = 10;
@@ -37,6 +37,11 @@ long _ade7763_read_24s(byte address) {
   ret = ( high << 16 | mid << 8 | low );
   if ( high | 0x80 ) { ret = ret | 0xFF000000; } // 2-complement 32 bit
   else { ret = ret & 0x007FFFFF; } // just make sure high bits are zero
+
+  Serial.print(high,HEX); Serial.print(" ");
+  Serial.print(mid,HEX); Serial.print(" ");
+  Serial.print(low,HEX); Serial.print(" ");
+
   return ret;
 }
 
@@ -47,6 +52,11 @@ unsigned long _ade7763_read_24u(byte address) {
   mid = Spi.transfer(0x00);
   low = Spi.transfer(0x00);
   digitalWrite(METER, HIGH);
+
+  Serial.print(high,HEX); Serial.print(" ");
+  Serial.print(mid,HEX); Serial.print(" ");
+  Serial.print(low,HEX); Serial.print(" ");
+  
   return ( high << 16 | mid << 8 | low );
 }
 
@@ -153,19 +163,18 @@ Spi.mode(0x57);
 }
 
 void loop() {
+  unsigned long a;
   //Serial.println(SPCR,BIN);
   
-  Serial.print(get_energy());
+  a=ade7763_read_rvaenergy();
+  Serial.print(" = ");
+  
+  Serial.print(a);
   Serial.print(" ");
   Serial.print(ade7763_read_dierev());
   Serial.print(" ");
   Serial.println(ade7763_read_chksum());
-     set_dimmer(0,(analogRead(0)>>2));
-     set_dimmer(1,(analogRead(0)>>2));
-     set_dimmer(2,(analogRead(0)>>2));
-     set_dimmer(3,(analogRead(0)>>2));
-     set_dimmer(4,(analogRead(0)>>2));
-     set_dimmer(5,(analogRead(0)>>2));
+  set_dimmer(2,(analogRead(0)>>2));
  
-     delay(100);
+  delay(2000);
 }
