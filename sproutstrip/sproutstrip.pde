@@ -1,9 +1,9 @@
 // place in communication mode
-//    toggle reset low or falling edge on SPI select
+// toggle reset low or falling edge on SPI select
 // write byte to communication register
 // read or write byte from function register
 // registers up to 3 bytes wide, MSB first
-//      12 bit register ignores 4 MSB of first byte
+// 12 bit register ignores 4 MSB of first byte
 // if we're writing above 250 kHz, may hit 4 us / byte limit
 //
 // SPI: slave reads at falling edge, writes at rising edge
@@ -11,7 +11,7 @@
 
 #include <Spi.h>
 #include <Wire.h>
-#define MUX_ADDRESS (B1001100) //  I2C MUX ADDRESS
+#define MUX_ADDRESS (B1001100) // I2C MUX ADDRESS
 
 const int METER = 10;
 const int DIMMER = 9;
@@ -53,7 +53,6 @@ long _ade7763_read_24u(byte address) {
 int _ade7763_read_8u(byte address) {
   _start_read(address);
   byte low;
-  delay(500);
   low = Spi.transfer(0x00);
   digitalWrite(METER, HIGH);
   return int(low);
@@ -96,18 +95,18 @@ int ade7763_read_chksum() {
 }
 
 long get_energy() {
-	// returns total energy since last call
-	// so first value on startup may not be useful
-	// or may be, if you have the timestamp of the last call
-	// TODO convert to useful units
-	return ade7763_read_rvaenergy();
+// returns total energy since last call
+// so first value on startup may not be useful
+// or may be, if you have the timestamp of the last call
+// TODO convert to useful units
+return ade7763_read_rvaenergy();
 }
 
 byte set_dimmer(int channel, int value)
 {
   byte Hbyte;
   byte Lbyte;
-  Hbyte=((channel&7)<<4)|((value&241)>>4);  // 0CCCVVVV VVVV0000
+  Hbyte=((channel&7)<<4)|((value&241)>>4); // 0CCCVVVV VVVV0000
   Lbyte=(value&15)<<4;
 
   digitalWrite(DIMMER,LOW);
@@ -118,10 +117,10 @@ byte set_dimmer(int channel, int value)
 }
 
 /*
-  Sprout Programmable Power Strip
-  MUX Control
-  for outlets 0-5
-  */
+Sprout Programmable Power Strip
+MUX Control
+for outlets 0-5
+*/
 
 // SWITCH MUX TO CHANNEL (0-5) OVER i2c
 void switch_mux(int sense_channel) {
@@ -129,36 +128,44 @@ void switch_mux(int sense_channel) {
    sense_channel &= 7; // keep only relevent bits
    Wire.send(1 << sense_channel);
    Wire.endTransmission();
-   //  Serial.print(sense_channel);
+   // Serial.print(sense_channel);
 }
 
 void setup()
 {
   Serial.begin(9600);
 
-	// 7763 init
+// 7763 init
   pinMode(METER, OUTPUT);
   digitalWrite(METER,HIGH); //disable device
-	Spi.mode(0x57);
+Spi.mode(0x57);
 
-	// mux init
+// mux init
    Wire.begin(); // begin i2c with arduino as master
    int x = 0;
    switch_mux(x);
 
-	// dimming init
+// dimming init
+  pinMode(DIMMER, OUTPUT);
   digitalWrite(DIMMER,HIGH); //disable device
 
   delay(10);
 }
 
 void loop() {
-  Serial.print("running\n");
   //Serial.println(SPCR,BIN);
-  Serial.println(ade7763_read_dierev());
-  delay(500);
+  
+  Serial.print(get_energy());
+  Serial.print(" ");
+  Serial.print(ade7763_read_dierev());
+  Serial.print(" ");
   Serial.println(ade7763_read_chksum());
+     set_dimmer(0,(analogRead(0)>>2));
+     set_dimmer(1,(analogRead(0)>>2));
      set_dimmer(2,(analogRead(0)>>2));
-     //a++;
-     delay(10);
+     set_dimmer(3,(analogRead(0)>>2));
+     set_dimmer(4,(analogRead(0)>>2));
+     set_dimmer(5,(analogRead(0)>>2));
+ 
+     delay(100);
 }
