@@ -9,8 +9,8 @@
 // SPI: slave reads at falling edge, writes at rising edge
 //
 
-#include <Spi/Spi.h>
-#include <Wire/Wire.h>
+#include <Spi.h>
+#include <Wire.h>
 #define MUX_ADDRESS (B1001100) // I2C MUX ADDRESS
 
 const int METER = 10;
