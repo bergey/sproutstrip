@@ -63,12 +63,47 @@ unsigned long _ade7763_read_24u(byte address) {
   return ( high << 16 | mid << 8 | low );
 }
 
+int _ade7763_read_16s(byte address) {
+	_start_read(address);
+	int ret;
+	byte high, low;
+	high = Spi.transfer(0x00);
+	low = Spi.transfer(0x00);
+	digitalWrite(METER, HIGH);
+	ret = high << 8 | low; // for now, assume we don't need  a cast
+	return ret; 
+}
+
+unsigned int _ade7763_read_16u(byte address) {
+	_start_read(address);
+	int ret;
+	byte high, low;
+	high = Spi.transfer(0x00);
+	low = Spi.transfer(0x00);
+	digitalWrite(METER, HIGH);
+	ret = high << 8 | low; // for now, assume we don't need  a cast
+	return ret; 
+}
+
 unsigned int _ade7763_read_8u(byte address) {
   _start_read(address);
   byte low;
   low = Spi.transfer(0x00);
   digitalWrite(METER, HIGH);
   return int(low);
+}
+
+void _ade7763_write_16u(byte address, unsigned int val) {
+	_start_write(address);
+	Spi.transfer(val>>8);
+	Spi.transfer(val & 0xFF);
+	digitalWrite(METER, HIGH);
+}
+
+void _ade7763_write_8u(byte address, byte val) {
+	_start_write(address);
+	Spi.transfer(val);
+	digitalWrite(METER, HIGH);
 }
 
 long ade7763_read_waveform() {
@@ -99,6 +134,112 @@ unsigned long ade7763_read_lvaenergy() {
   return _ade7763_read_24u(0x07);
 }
 
+unsigned int ade7763_read_mode() {
+	return _ade7763_read_16u(0x09);
+}
+
+void ade7763_write_mode(unsigned int val) {
+	_ade7763_write_16u(0x09, val);
+}
+
+unsigned int ade7763_read_irqen() {
+	return _ade7763_read_16u(0x0A);
+}
+
+void ade7763_write_irqen(unsigned int val) {
+	_ade7763_write_16u(0x0A, val);
+}
+
+unsigned int ade7763_read_status() {
+	return _ade7763_read_16u(0x0B);
+}
+
+unsigned int ade7763_read_rststatus() {
+	return _ade7763_read_16u(0x0C);
+}
+
+byte ade7763_read_ch1os() {
+	return _ade7763_read_8u(0x0D);
+}
+
+void ade7763_write_ch1os(byte val) {
+	_ade7763_write_8u(0x0D, val);
+}
+
+byte ade7763_read_ch2os() {
+	return _ade7763_read_8u(0x0E);
+}
+
+void ade7763_write_ch2os(byte val) {
+	_ade7763_write_8u(0x0E, val);
+}
+
+byte ade7763_read_gain() {
+	return _ade7763_read_8u(0x0F);
+}
+
+void ade7763_write_gain(byte val) {
+	_ade7763_write_8u(0x0F, val);
+}
+
+// I'm not sure how do deal with 6-bit signed
+
+int ade7763_read_apos() {
+	return _ade7763_read_16s(0x11);
+}
+
+void ade7763_write_apos(int val) {
+	_ade7763_write_16s(0x11, val);
+}
+
+// 12-bit signed, also unclear
+
+byte ade7763_read_wdiv() {
+	return _ade7763_read_8u(0x13);
+}
+
+void ade7763_write_wdiv(byte val) {
+	_ade7763_write_8u(0x13, val);
+}
+
+unsigned int ade7763_read_cfnum() {
+	return _ade7763_read_16u(0x14);
+}
+
+void ade7763_write_cfnum(unsigned int val) {
+	_ade7764_write_16u(0x14, val);
+}
+
+unsigned int ade7763_read_cfden() {
+	return _ade7763_read_16u(0x15);
+}
+
+void ade7763_write_cfden(unsigned int val) {
+	_ade7763_write_16u(0x15, val);
+}
+
+unsigned long ade7763_read_irms() {
+	return _ade7763_read_24u(0x16);
+}
+
+unsigned long ade7763_read_vrms() {
+	return _ade7763_read_24u(0x17);
+}
+
+// 12-bit signed values
+
+byte ade7763_read_vadiv() {
+	return _ade7763_read_8u(0x1B);
+}
+
+void ade7763_write_vadiv(byte val) {
+	_ade7763_write_8u(0x1B, val);
+}
+
+byte ade7763_read_temp() {
+	return _ade7763_read_8u(0x26);
+}
+
 unsigned int ade7763_read_dierev() {
   return _ade7763_read_8u(0x3F);
 }
@@ -110,7 +251,7 @@ unsigned int ade7763_read_chksum() {
 unsigned long get_energy() {
 // returns total energy since last call
 // so first value on startup may not be useful
-// or may be, if you have the timestamp of the last call
+// certainly not if we've switched the MUX
 // TODO convert to useful units
 return ade7763_read_rvaenergy();
 }
@@ -151,7 +292,8 @@ void setup()
 // 7763 init
   pinMode(METER, OUTPUT);
   digitalWrite(METER,HIGH); //disable device
-Spi.mode(0x57);
+  Spi.mode(0x57);
+  ade7763_write_gain(0x22); // 2x on Voltage, 4x on Current (15A, 120 Vrms)
 
 // mux init
    Wire.begin(); // begin i2c with arduino as master
@@ -179,5 +321,5 @@ void loop() {
 //  Serial.println(ade7763_read_chksum());
   set_dimmer(2,(analogRead(0)>>2));
  
-  delay(1000);
+  delay(2000);
 }
