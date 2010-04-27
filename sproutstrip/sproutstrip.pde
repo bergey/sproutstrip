@@ -48,8 +48,11 @@ long _ade7763_read_24s(byte address) {
 unsigned long _ade7763_read_24u(byte address) {
   _start_read(address);
   byte high, mid, low;
+  delayMicroseconds(10);
   high = Spi.transfer(0x00);
+  delayMicroseconds(10);
   mid = Spi.transfer(0x00);
+  delayMicroseconds(10);
   low = Spi.transfer(0x00);
   digitalWrite(METER, HIGH);
 
@@ -166,15 +169,15 @@ void loop() {
   unsigned long a;
   //Serial.println(SPCR,BIN);
   
-  a=ade7763_read_rvaenergy();
+  a=ade7763_read_vaenergy();
   Serial.print(" = ");
   
-  Serial.print(a);
-  Serial.print(" ");
-  Serial.print(ade7763_read_dierev());
-  Serial.print(" ");
-  Serial.println(ade7763_read_chksum());
+  Serial.println(a);
+//  Serial.print(" ");
+//  Serial.print(ade7763_read_dierev());
+//  Serial.print(" ");
+//  Serial.println(ade7763_read_chksum());
   set_dimmer(2,(analogRead(0)>>2));
  
-  delay(2000);
+  delay(1000);
 }
