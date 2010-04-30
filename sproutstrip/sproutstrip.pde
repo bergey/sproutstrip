@@ -16,6 +16,12 @@
 const int METER = 10;
 const int DIMMER = 9;
 
+char* isoDate(time_t t) {
+	char stamp[20]; // including terminating null
+	sprintf(stamp, "%04d-%02d-%02d %02d:%02d:%02d", year(t), month(t), day(t), hour(t), minute(t), second(t));
+	return stamp;
+}
+
 void _start_read(byte address) {
   digitalWrite(METER, LOW);
   Spi.transfer(address & 0x3F);
@@ -248,11 +254,13 @@ unsigned int ade7763_read_chksum() {
   return _ade7763_read_8u(0x3E);
 }
 
-unsigned long get_energy() {
-// returns total energy since last call
-// so first value on startup may not be useful
-// certainly not if we've switched the MUX
+unsigned long get_energy(byte channel) {
+// measures energy for 100 ms
 // TODO convert to useful units
+switch_mux(channel);
+// TODO set gain for this channel
+ade7763_read_rvaenergy(); // clear accumulator
+delay(100);
 return ade7763_read_rvaenergy();
 }
 
@@ -310,6 +318,7 @@ void setup()
 void loop() {
   unsigned long a;
   //Serial.println(SPCR,BIN);
+	serial.println(isoDate(now()));
   
   a=ade7763_read_vaenergy();
   Serial.print(" = ");
