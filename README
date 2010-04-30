@@ -1,0 +1,15 @@
+Arduino code and Eagle PCB files for a powerstrip able to independantly meter
+and switch each outlet.
+
+FAT16 code from code.google.com/fat16lib
+Depends on:
+  From arduino.cc
+    Wire
+    Spi
+    Time
+    DS1307RTC
+
+Created by:
+Daniel Bergey <bergey@alum.mit.edu>
+Eric Smith <eric@inticalabs.com>
+Gideon Weisz <bot@gideonweisz.com>
