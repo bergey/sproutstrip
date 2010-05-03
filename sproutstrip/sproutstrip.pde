@@ -11,10 +11,115 @@
 
 #include <Spi.h>
 #include <Wire.h>
+#include <Time.h>
+#include <DS1307RTC.h>
+#include <sd_raw.h>
+#include <partition.h>
+#include <fat.h>
 #define MUX_ADDRESS (B1001100) // I2C MUX ADDRESS
+#define FILENAME "log.txt"
 
 const int METER = 10;
 const int DIMMER = 9;
+const int SDCARD = 8;
+
+// lines from Sparkfun Fat16 example
+#define BUFFERSIZE 256
+char buffer[BUFFERSIZE];
+char filename[30];
+
+struct fat_dir_struct* dd;		//FAT16 directory
+struct fat_dir_entry_struct dir_entry;	//FAT16 directory entry (A.K.A. a file)
+
+struct fat_fs_struct* fs;		//FAT16 File System
+struct partition_struct* partition;	//FAT16 Partition
+
+struct fat_file_struct * file_handle;	//FAT16 File Handle
+
+char init_filesystem(void)
+{
+  //setup sd card slot 
+  if(!sd_raw_init())
+  {
+    return 0;
+  }
+
+  //open first partition
+  partition = partition_open(sd_raw_read,
+                  sd_raw_read_interval,
+#if SD_RAW_WRITE_SUPPORT
+                  sd_raw_write,
+                  sd_raw_write_interval,
+#else
+                  0,
+                  0,
+#endif
+                  0
+                 );
+
+  if(!partition)
+  {
+    //If the partition did not open, assume the storage device
+    //is a "superfloppy", i.e. has no MBR.
+    partition = partition_open(sd_raw_read,
+                   sd_raw_read_interval,
+#if SD_RAW_WRITE_SUPPORT
+                   sd_raw_write,
+                   sd_raw_write_interval,
+#else
+                   0,
+                   0,
+#endif
+                   -1
+                  );
+    if(!partition)
+    {
+      return 0;
+    }
+  }
+
+  //Open file system
+  fs = fat_open(partition);
+  if(!fs)
+  {
+    return 0;
+  }
+
+  //Open root directory
+  fat_get_dir_entry_of_path(fs, "/", &dir_entry);
+  dd=fat_open_dir(fs, &dir_entry);
+  
+  if(!dd)
+  {
+    return 0;
+  }
+  return 1;
+}
+
+uint8_t find_file_in_dir(struct fat_fs_struct* fs, struct fat_dir_struct* dd, const char* name, struct fat_dir_entry_struct* dir_entry)
+{
+	fat_reset_dir(dd);	//Make sure to start from the beginning of the directory!
+    while(fat_read_dir(dd, dir_entry))
+    {
+        if(strcmp(dir_entry->long_name, name) == 0)
+        {
+            //fat_reset_dir(dd);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+struct fat_file_struct* open_file_in_dir(struct fat_fs_struct* fs, struct fat_dir_struct* dd, const char* name)
+{
+    struct fat_dir_entry_struct file_entry;
+    if(!find_file_in_dir(fs, dd, name, &file_entry))
+        return 0;
+
+    return fat_open_file(fs, &file_entry);
+}
+// end of Fat16 declarations
 
 char* isoDate(time_t t) {
 	char stamp[20]; // including terminating null
@@ -80,6 +185,7 @@ int _ade7763_read_16s(byte address) {
 	return ret; 
 }
 
+
 unsigned int _ade7763_read_16u(byte address) {
 	_start_read(address);
 	int ret;
@@ -97,6 +203,13 @@ unsigned int _ade7763_read_8u(byte address) {
   low = Spi.transfer(0x00);
   digitalWrite(METER, HIGH);
   return int(low);
+}
+
+void _ade7763_write_16s(byte address, int val) {
+	_start_write(address);
+	Spi.transfer(val>>8);
+	Spi.transfer(val & 0xFF);
+	digitalWrite(METER, HIGH);
 }
 
 void _ade7763_write_16u(byte address, unsigned int val) {
@@ -213,7 +326,7 @@ unsigned int ade7763_read_cfnum() {
 }
 
 void ade7763_write_cfnum(unsigned int val) {
-	_ade7764_write_16u(0x14, val);
+	_ade7763_write_16u(0x14, val);
 }
 
 unsigned int ade7763_read_cfden() {
@@ -305,25 +418,45 @@ void setup()
 
 // mux init
    Wire.begin(); // begin i2c with arduino as master
-   int x = 0;
-   switch_mux(x);
+   switch_mux(0);
 
 // dimming init
   pinMode(DIMMER, OUTPUT);
   digitalWrite(DIMMER,HIGH); //disable device
+
+	// RTC init
+	setSyncProvider(RTC.get);
+	if(timeStatus() != timeSet)
+		Serial.println("Unable to sync with the RTC");
+	else
+		Serial.println("Using RTC");
+
+	// uSD init
+	pinMode(SDCARD, OUTPUT);
+	init_filesystem();
+	// create file iff it does not exist
+	fat_create_file(dd, "Log.txt", &dir_entry);
+	file_handle = open_file_in_dir(fs, dd, FILENAME);
 
   delay(10);
 }
 
 void loop() {
   unsigned long a;
+  sprintf(buffer,isoDate(now()));
   //Serial.println(SPCR,BIN);
-	serial.println(isoDate(now()));
+//	serial.println(isoDate(now()));
   
   a=ade7763_read_vaenergy();
+	sprintf(buffer+19, " %06x", a);
   Serial.print(" = ");
+	Serial.println(buffer);
+	
+	// SD test
+	fat_seek_file(file_handle, 0, FAT_SEEK_END);
+	fat_write_file(file_handle, (const uint8_t*)buffer, BUFFERSIZE);
+	sd_raw_sync();
   
-  Serial.println(a);
 //  Serial.print(" ");
 //  Serial.print(ade7763_read_dierev());
 //  Serial.print(" ");
