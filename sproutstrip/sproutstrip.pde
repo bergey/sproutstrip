@@ -19,14 +19,41 @@
 #define MUX_ADDRESS (B1001100) // I2C MUX ADDRESS
 #define FILENAME "log.txt"
 
+#define MOSI 11
+#define MISO 12
+#define SPICLOCK  13//sck
+#define SLAVESELECT 10//ss
+
 const int METER = 10;
 const int DIMMER = 9;
 const int SDCARD = 8;
+
+// SPI code
+// 16 kHz clock or slower
+//64 microseconds per bit
+//512 microseconds per byte
+char spi_transfer(volatile char b_in) {
+  char b_out=0;
+  unsigned long t;
+  int i;
+  for(i=7; i<0; i--) {
+    digitalWrite(SPICLOCK, HIGH);
+    t = micros();
+    if(b_in| (1<<i)) {digitalWrite(MOSI, HIGH);}
+    else {digitalWrite(MOSI, LOW);}
+    while (micros() < t+32) {}
+    digitalWrite(SPICLOCK, LOW);
+    b_out & (digitalRead(MISO)<<i);
+    while (micros() < t+64) {}
+  }
+  return b_out;
+}
 
 // lines from Sparkfun Fat16 example
 #define BUFFERSIZE 256
 char buffer[BUFFERSIZE];
 char filename[30];
+char timestamp[20];
 
 struct fat_dir_struct* dd;		//FAT16 directory
 struct fat_dir_entry_struct dir_entry;	//FAT16 directory entry (A.K.A. a file)
@@ -121,29 +148,27 @@ struct fat_file_struct* open_file_in_dir(struct fat_fs_struct* fs, struct fat_di
 }
 // end of Fat16 declarations
 
-char* isoDate(time_t t) {
-	char stamp[20]; // including terminating null
-	sprintf(stamp, "%04d-%02d-%02d %02d:%02d:%02d", year(t), month(t), day(t), hour(t), minute(t), second(t));
-	return stamp;
+char* isoDate(char* str, time_t t) {
+	sprintf(str, "%04d-%02d-%02d %02d:%02d:%02d", year(t), month(t), day(t), hour(t), minute(t), second(t));
 }
 
 void _start_read(byte address) {
   digitalWrite(METER, LOW);
-  Spi.transfer(address & 0x3F);
+  spi_transfer(address & 0x3F);
 }
 
 void _start_write(byte address) {
   digitalWrite(METER, LOW);
-  Spi.transfer( (address & 0x3F) | 0x80 );
+  spi_transfer( (address & 0x3F) | 0x80 );
 }
 
 long _ade7763_read_24s(byte address) {
   _start_read(address);
   long ret;
   byte high, mid, low;
-  high = Spi.transfer(0x00);
-  mid = Spi.transfer(0x00);
-  low = Spi.transfer(0x00);
+  high = spi_transfer(0x00);
+  mid = spi_transfer(0x00);
+  low = spi_transfer(0x00);
   digitalWrite(METER, HIGH);
   ret = ( high << 16 | mid << 8 | low );
   if ( high | 0x80 ) { ret = ret | 0xFF000000; } // 2-complement 32 bit
@@ -160,11 +185,11 @@ unsigned long _ade7763_read_24u(byte address) {
   _start_read(address);
   byte high, mid, low;
   delayMicroseconds(10);
-  high = Spi.transfer(0x00);
+  high = spi_transfer(0x00);
   delayMicroseconds(10);
-  mid = Spi.transfer(0x00);
+  mid = spi_transfer(0x00);
   delayMicroseconds(10);
-  low = Spi.transfer(0x00);
+  low = spi_transfer(0x00);
   digitalWrite(METER, HIGH);
 
   Serial.print(high,HEX); Serial.print(" ");
@@ -178,8 +203,8 @@ int _ade7763_read_16s(byte address) {
 	_start_read(address);
 	int ret;
 	byte high, low;
-	high = Spi.transfer(0x00);
-	low = Spi.transfer(0x00);
+	high = spi_transfer(0x00);
+	low = spi_transfer(0x00);
 	digitalWrite(METER, HIGH);
 	ret = high << 8 | low; // for now, assume we don't need  a cast
 	return ret; 
@@ -190,8 +215,8 @@ unsigned int _ade7763_read_16u(byte address) {
 	_start_read(address);
 	int ret;
 	byte high, low;
-	high = Spi.transfer(0x00);
-	low = Spi.transfer(0x00);
+	high = spi_transfer(0x00);
+	low = spi_transfer(0x00);
 	digitalWrite(METER, HIGH);
 	ret = high << 8 | low; // for now, assume we don't need  a cast
 	return ret; 
@@ -200,28 +225,28 @@ unsigned int _ade7763_read_16u(byte address) {
 unsigned int _ade7763_read_8u(byte address) {
   _start_read(address);
   byte low;
-  low = Spi.transfer(0x00);
+  low = spi_transfer(0x00);
   digitalWrite(METER, HIGH);
   return int(low);
 }
 
 void _ade7763_write_16s(byte address, int val) {
 	_start_write(address);
-	Spi.transfer(val>>8);
-	Spi.transfer(val & 0xFF);
+	spi_transfer(val>>8);
+	spi_transfer(val & 0xFF);
 	digitalWrite(METER, HIGH);
 }
 
 void _ade7763_write_16u(byte address, unsigned int val) {
 	_start_write(address);
-	Spi.transfer(val>>8);
-	Spi.transfer(val & 0xFF);
+	spi_transfer(val>>8);
+	spi_transfer(val & 0xFF);
 	digitalWrite(METER, HIGH);
 }
 
 void _ade7763_write_8u(byte address, byte val) {
 	_start_write(address);
-	Spi.transfer(val);
+	spi_transfer(val);
 	digitalWrite(METER, HIGH);
 }
 
@@ -386,8 +411,8 @@ byte set_dimmer(int channel, int value)
 
   digitalWrite(DIMMER,LOW);
   //2 byte opcode
-  Spi.transfer(Hbyte);
-  Spi.transfer(Lbyte);
+  spi_transfer(Hbyte);
+  spi_transfer(Lbyte);
   digitalWrite(DIMMER,HIGH); //release chip, signal end transfer
 }
 
